@@ -6,8 +6,6 @@ import json
 
 data = open('bulbul.jpg','rb').read()
 
-res = requests.get('stackoverflow.com')
-print(res.text)
 
 res = requests.post(url='http://817c1c6b-37b5-43a4-a947-9e252b665ead.westeurope.azurecontainer.io/score', 
                     data=data, headers={'Content-Type':'application/octet-stream'})
