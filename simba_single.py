@@ -2,6 +2,7 @@ import argparse
 import numpy as np
 import pathlib
 import io
+import os
 import requests
 import torch
 import torchvision
@@ -10,6 +11,8 @@ from torchvision.transforms import ToTensor
 from torchvision.utils import save_image
 import utils
 from PIL import Image
+
+TMP_FOLDER = './tmp'
 
 def normalize(x):
     return utils.apply_normalization(x, 'imagenet')
@@ -20,7 +23,7 @@ def normalize(x):
 #     return torch.diag(probs.data)
 
 def get_probs_locally(model, x, y):
-    torchvision.utils.save_image(x, fp='/tmp/out.jpg')
+    torchvision.utils.save_image(x, fp=os.path.join(TMP_FOLDER, 'out.jpg'))
     preprocess = transforms.Compose([
                 transforms.Resize(299),
                 transforms.CenterCrop(299),
@@ -38,8 +41,8 @@ def get_probs_locally(model, x, y):
     return score    
 
 def get_probs_with_rest_request(x, y):
-    torchvision.utils.save_image(x, fp='/tmp/out.jpg')
-    with open('/tmp/out.jpg', mode='rb') as out:
+    torchvision.utils.save_image(x, fp=os.path.join(TMP_FOLDER, 'out.jpg'))
+    with open(os.path.join(TMP_FOLDER, 'out.jpg'), mode='rb') as out:
         response = requests.post(url='http://817c1c6b-37b5-43a4-a947-9e252b665ead.westeurope.azurecontainer.io/score', data=out.read(), headers={'Content-Type':'application/octet-stream'})
     score = response.json()['result'][y]
     print(f'bulbul score: {score}')
@@ -48,8 +51,8 @@ def get_probs_with_rest_request(x, y):
 
 def get_model():
     model = torch.hub.load('pytorch/vision:v0.6.0', 'resnet50', pretrained=True)    
-    pathlib.Path('/tmp/model_dir').mkdir(parents=True, exist_ok=True)
-    model_path = '/tmp/model_dir/gopalv-resnet50'
+    pathlib.Path(os.path.join(TMP_FOLDER, 'model_dir')).mkdir(parents=True, exist_ok=True)
+    model_path = os.path.join(TMP_FOLDER, 'model_dir/gopalv-resnet50')
     model.eval()
     torch.save(model.state_dict(), model_path)
     return model
@@ -62,7 +65,7 @@ def simba_single(x, y, num_iters=1000, epsilon=0.2):
     perm = torch.randperm(n_dims)
     last_prob = get_probs(x, y)
     all_last_probs = [last_prob]
-    with open('/tmp/simba_iters.txt', mode='wt') as log:
+    with open(os.path.join(TMP_FOLDER, 'simba_iters.txt'), mode='wt') as log:
         for i in range(num_iters):
             print(f'starting iteration {i}')
             diff = torch.zeros(n_dims)
@@ -85,7 +88,7 @@ def simba_single(x, y, num_iters=1000, epsilon=0.2):
 def main():
     print('run main of simba_single')
     parser = argparse.ArgumentParser()
-    with Image.open('/Users/vashishthamahesh/Documents/imagenet/val/bulbul/bulbul_gopal.jpg') as image:    
+    with Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bulbul.jpg')) as image:    
     # with Image.open('/Users/vashishthamahesh/Documents/imagenet/val/bulbul/bulbul.jpg') as image:
         simba_single(ToTensor()(image), 16)
 
