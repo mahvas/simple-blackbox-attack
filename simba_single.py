@@ -17,11 +17,6 @@ TMP_FOLDER = './tmp'
 def normalize(x):
     return utils.apply_normalization(x, 'imagenet')
 
-# def get_probs(model, x, y):
-#     output = model(normalize(x.cuda())).cpu()
-#     probs = torch.nn.Softmax()(output)[:, y]
-#     return torch.diag(probs.data)
-
 def get_probs_locally(model, x, y):
     torchvision.utils.save_image(x, fp=os.path.join(TMP_FOLDER, 'out.jpg'))
     preprocess = transforms.Compose([
@@ -30,7 +25,7 @@ def get_probs_locally(model, x, y):
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
-    input_tensor = preprocess(Image.open('/tmp/out.jpg'))
+    input_tensor = preprocess(Image.open(os.path.join(TMP_FOLDER, 'out.jpg')))
     input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
     with torch.no_grad():
         output = model(input_batch)    
@@ -50,11 +45,10 @@ def get_probs_with_rest_request(x, y):
     return score
 
 def get_model():
+    print('loading model')
     model = torch.hub.load('pytorch/vision:v0.6.0', 'resnet50', pretrained=True)    
-    pathlib.Path(os.path.join(TMP_FOLDER, 'model_dir')).mkdir(parents=True, exist_ok=True)
-    model_path = os.path.join(TMP_FOLDER, 'model_dir/gopalv-resnet50')
     model.eval()
-    torch.save(model.state_dict(), model_path)
+    print('done loading model')
     return model
 
 # 20-line implementation of (untargeted) SimBA for single image input
@@ -88,9 +82,18 @@ def simba_single(x, y, num_iters=1000, epsilon=0.2):
 def main():
     print('run main of simba_single')
     parser = argparse.ArgumentParser()
-    with Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'bulbul.jpg')) as image:    
-    # with Image.open('/Users/vashishthamahesh/Documents/imagenet/val/bulbul/bulbul.jpg') as image:
-        simba_single(ToTensor()(image), 16)
+
+    parser.add_argument('--infile', type=str, help='file to perturb', default='bulbul.jpg')
+    parser.add_argument('--index', type=int, help='imagenet index of unperturbed image', default=16)
+    parser.add_argument('--tmp_folder', type=str, help='tmp folder to use', default='./tmp')
+
+    args = parser.parse_args()
+
+    TMP_FOLDER=args.tmp_folder
+    os.makedirs(TMP_FOLDER, exist_ok=True)
+
+    with Image.open(args.infile) as image:
+        simba_single(ToTensor()(image), args.index)
 
 if __name__ == "__main__":
     main()
